@@ -29,13 +29,6 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function escapeHtml(str) {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 function getVisible() {
   const filtered = filterCategory === 'All'
@@ -62,26 +55,56 @@ function render() {
 function renderList() {
   const container = document.getElementById('expense-list');
   const visible = getVisible();
+  container.replaceChildren();
 
   if (visible.length === 0) {
-    const msg = filterCategory === 'All'
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = filterCategory === 'All'
       ? 'No expenses yet — add one above!'
       : `No expenses in "${filterCategory}".`;
-    container.innerHTML = `<div class="empty-state">${msg}</div>`;
+    container.appendChild(empty);
     return;
   }
 
-  container.innerHTML = visible.map(e => `
-    <div class="expense-row">
-      <span class="expense-desc">${escapeHtml(e.description)}</span>
-      <div class="expense-meta">
-        <span class="expense-amount">${formatCurrency(e.amount)}</span>
-        <span class="expense-cat">${e.category}</span>
-        <span class="expense-date">${e.date}</span>
-      </div>
-      <button class="btn btn-danger delete-btn" data-id="${e.id}" aria-label="Delete ${escapeHtml(e.description)}">✕</button>
-    </div>
-  `).join('');
+  const fragment = document.createDocumentFragment();
+
+  visible.forEach(e => {
+    const row = document.createElement('div');
+    row.className = 'expense-row';
+
+    const desc = document.createElement('span');
+    desc.className = 'expense-desc';
+    desc.textContent = e.description;
+
+    const meta = document.createElement('div');
+    meta.className = 'expense-meta';
+
+    const amount = document.createElement('span');
+    amount.className = 'expense-amount';
+    amount.textContent = formatCurrency(e.amount);
+
+    const cat = document.createElement('span');
+    cat.className = 'expense-cat';
+    cat.textContent = e.category;
+
+    const date = document.createElement('span');
+    date.className = 'expense-date';
+    date.textContent = e.date;
+
+    meta.append(amount, cat, date);
+
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-danger delete-btn';
+    btn.dataset.id = e.id;
+    btn.setAttribute('aria-label', `Delete ${e.description}`);
+    btn.textContent = '✕';
+
+    row.append(desc, meta, btn);
+    fragment.appendChild(row);
+  });
+
+  container.appendChild(fragment);
 }
 
 function renderTotals() {
@@ -100,9 +123,22 @@ function renderTotals() {
     return acc;
   }, {});
 
-  document.getElementById('category-totals').innerHTML = Object.entries(catMap)
-    .map(([cat, amt]) => `<span class="cat-pill"><strong>${cat}</strong> ${formatCurrency(amt)}</span>`)
-    .join('');
+  const catContainer = document.getElementById('category-totals');
+  catContainer.replaceChildren();
+
+  const catFragment = document.createDocumentFragment();
+  Object.entries(catMap).forEach(([cat, amt]) => {
+    const pill = document.createElement('span');
+    pill.className = 'cat-pill';
+
+    const strong = document.createElement('strong');
+    strong.textContent = cat;
+
+    pill.append(strong, ` ${formatCurrency(amt)}`);
+    catFragment.appendChild(pill);
+  });
+
+  catContainer.appendChild(catFragment);
 }
 
 // Form
@@ -178,6 +214,37 @@ document.getElementById('expense-list').addEventListener('click', e => {
   expenses = expenses.filter(ex => ex.id !== btn.dataset.id);
   saveToStorage();
   render();
+});
+
+// Conversion
+document.getElementById('convert-btn').addEventListener('click', async () => {
+  const btn     = document.getElementById('convert-btn');
+  const result  = document.getElementById('eur-result');
+  const errEl   = document.getElementById('eur-error');
+
+  const total = getVisible().reduce((sum, e) => sum + e.amount, 0);
+
+  btn.disabled = true;
+  btn.textContent = 'Converting…';
+  result.hidden = true;
+  errEl.textContent = '';
+
+  try {
+    const res = await fetch('https://open.er-api.com/v6/latest/USD');
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+
+    const data = await res.json();
+    const rate = data.rates?.EUR;
+    if (!rate) throw new Error('EUR rate not found in response.');
+
+    result.textContent = `≈ €${(total * rate).toFixed(2)} EUR (rate: ${rate.toFixed(4)})`;
+    result.hidden = false;
+  } catch (err) {
+    errEl.textContent = `Conversion failed: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Convert to EUR';
+  }
 });
 
 // Filter & sort

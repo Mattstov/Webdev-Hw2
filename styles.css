@@ -140,6 +140,21 @@ main {
 .btn-primary { background: var(--accent); color: #fff; }
 .btn-primary:hover { background: var(--accent-h); }
 
+.btn-secondary {
+  background: #eef0f8;
+  color: var(--accent);
+}
+
+.btn-secondary:hover { background: #dde1f5; }
+.btn-secondary:disabled { opacity: .55; cursor: not-allowed; }
+
+.eur-result {
+  font-size: .9rem;
+  font-weight: 600;
+  color: #1e8f5e;
+  margin-top: .5rem;
+}
+
 .btn-danger {
   background: transparent;
   color: var(--danger);
