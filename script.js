@@ -1,5 +1,22 @@
+// Storage
+const STORAGE_KEY = 'expense-tracker-v1';
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveToStorage() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
+}
+
 // State
-let expenses = [];
+let expenses = loadFromStorage();
 let filterCategory = 'All';
 let sortKey = 'date-desc';
 
@@ -110,6 +127,7 @@ form.addEventListener('submit', e => {
   };
 
   expenses.push(expense);
+  saveToStorage();
   render();
 
   descInput.value   = '';
@@ -158,6 +176,7 @@ document.getElementById('expense-list').addEventListener('click', e => {
   const btn = e.target.closest('.delete-btn');
   if (!btn) return;
   expenses = expenses.filter(ex => ex.id !== btn.dataset.id);
+  saveToStorage();
   render();
 });
 
